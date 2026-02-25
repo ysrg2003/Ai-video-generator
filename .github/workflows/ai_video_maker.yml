@@ -26,7 +26,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-arabic
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf 
           python -m playwright install chromium
 
       - name: Install Python Libraries
