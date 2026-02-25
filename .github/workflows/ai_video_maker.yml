@@ -1,4 +1,4 @@
-name: "Ultimate AI Video Production"
+name: "🚀 Ultimate AI Video Production"
 
 on:
   workflow_dispatch:
@@ -9,79 +9,122 @@ on:
         default: 'ما هو الـ DNS؟'
 
 jobs:
-  build:
+  production:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write # ضروري لتشغيل ومراقبة Workflows أخرى
+      actions: write
+      id-token: write
 
     steps:
-      - name: "Checkout Repository"
+      - name: "📦 Checkout Repository"
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # لجلب كامل التاريخ لضمان نجاح الـ Push
 
-      # 1. فك الترسانة (توفر كافة مكتبات Python والمتصفحات)
-      - name: "Unpack Arsenal"
+      - name: "🐍 Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # --- إدارة الترسانة (Arsenal Management) ---
+      - name: "📂 Restore Arsenal Cache"
+        id: cache-arsenal
+        uses: actions/cache@v4
+        with:
+          path: vendor_extracted
+          key: arsenal-v1-cache-${{ runner.os }}
+
+      - name: "📥 Download & Setup Arsenal (If Cache Miss)"
+        if: steps.cache-arsenal.outputs.cache-hit != 'true'
         run: |
-          if [ -f "vendor_assets.zip" ]; then
-            unzip -q vendor_assets.zip -d .
-            echo "✅ الترسانة جاهزة!"
-          else
-            echo "❌ ملف vendor_assets.zip غير موجود!"
-            exit 1
-          fi
+          echo "🌐 Downloading Release Asset..."
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -o vendor_assets.zip \
+               "https://github.com/${{ github.repository }}/releases/download/arsenal-v1/vendor_assets.zip"
+          
+          echo "📦 Unzipping Arsenal..."
+          unzip -q vendor_assets.zip -d vendor_extracted
+          
+          echo "🔑 Fixing Permissions..."
+          find vendor_extracted -type f -name "node" -exec chmod +x {} +
+          find vendor_extracted -type f -name "chrome" -exec chmod +x {} +
+          find vendor_extracted -type f -name "firefox" -exec chmod +x {} +
+          chmod -R +x vendor_extracted/python/bin 2>/dev/null || true
 
-      # 2. تثبيت تبعات النظام الضرورية لـ Manim فقط
-      - name: "Install System Dependencies"
+      # --- بيئة الرندر (Rendering Environment) ---
+      - name: "🛠️ Install System Dependencies (Manim Core)"
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-kacst fonts-noto-core
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config \
+          fonts-freefont-ttf fonts-kacst fonts-noto-core texlive texlive-fonts-extra
 
-      # 3. تشغيل خدمة Gemini API وانتظار النتيجة (المرحلة 1)
-      - name: "Phase 1: Get Script from Gemini API"
+      # --- المرحلة الأولى: الذكاء الاصطناعي ---
+      - name: "🤖 Phase 1: Script Generation (Gemini)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🚀 استدعاء Gemini API..."
-          gh workflow run gemini_api.yml -f prompt="أريد سكريبت فيديو عن ${{ github.event.inputs.prompt }}. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
+          echo "📡 Triggering Gemini Workflow..."
+          gh workflow run gemini_api.yml -f prompt="${{ github.event.inputs.prompt }}"
           
-          sleep 10
+          echo "⏳ Waiting for Gemini to think..."
+          sleep 20 # زيادة وقت الانتظار لضمان التسجيل
+          
           RUN_ID=$(gh run list --workflow gemini_api.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-          echo "📡 مراقبة العملية: $RUN_ID"
+          echo "🔍 Monitoring Run ID: $RUN_ID"
           
           gh run watch $RUN_ID
           
-          # تحميل النتيجة result.json
-          gh run download $RUN_ID -n gemini-json
-          echo "✅ تم استلام السيناريو."
-
-      # 4. رندر الفيديو باستخدام مكتبات الترسانة (المرحلة 2)
-      - name: "Phase 2: Render Video"
-        run: |
-          # إضافة مسار مكتبات الترسانة لمسار بايثون
-          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/python
-          python main_pipeline.py
-
-      # 5. الأرشفة والرفع (المرحلة 3)
-      - name: "Phase 3: Archive and Upload"
-        run: |
-          git config --global user.name "VideoBot"
-          git config --global user.email "bot@video.com"
-          
-          VIDEO_FILE=$(find media/videos -name "*.mp4" | head -n 1)
-          
-          if [ -n "$VIDEO_FILE" ]; then
-            mkdir -p output_videos
-            cp "$VIDEO_FILE" output_videos/final_video.mp4
-            git add output_videos/final_video.mp4
-            git commit -m "🎬 New Video: ${{ github.event.inputs.prompt }}"
-            git push
-          else
-            echo "❌ No video found."
+          # التحقق من نجاح العملية
+          CONCLUSION=$(gh run view $RUN_ID --json conclusion --jq '.conclusion')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "❌ Gemini API Workflow failed!"
             exit 1
           fi
+          
+          gh run download $RUN_ID -n gemini-json
+          echo "✅ Script received successfully."
 
-      - name: "Upload Final Video Artifact"
+      # --- المرحلة الثانية: صناعة الفيديو ---
+      - name: "🎬 Phase 2: Rendering Video (Manim)"
+        run: |
+          # حقن المسارات في بيئة النظام
+          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/vendor_extracted/python
+          export PLAYWRIGHT_BROWSERS_PATH=${{ github.workspace }}/vendor_extracted/browsers
+          export PATH=$PATH:${{ github.workspace }}/vendor_extracted/python/bin
+          
+          echo "⚙️ Starting Main Pipeline..."
+          python main_pipeline.py
+
+      # --- المرحلة الثالثة: الحفظ والنشر ---
+      - name: "📤 Phase 3: Archive & Push"
+        if: always()
+        run: |
+          git config --global user.name "AI-Video-Bot"
+          git config --global user.email "bot@ai-video.com"
+          
+          # البحث عن ملف الفيديو الناتج
+          VIDEO_PATH=$(find media/videos -name "*.mp4" | head -n 1)
+          
+          if [ -n "$VIDEO_PATH" ]; then
+            echo "✅ Video found at: $VIDEO_PATH"
+            mkdir -p final_outputs
+            cp "$VIDEO_PATH" final_outputs/video_$(date +%Y%m%d_%H%M%S).mp4
+            
+            # محاولة الرفع للمستودع (اختياري)
+            git add final_outputs/
+            git commit -m "🎬 Generated: ${{ github.event.inputs.prompt }}" || echo "No changes to commit"
+            git push origin main || echo "Push failed, but video is safe in artifacts."
+          else
+            echo "⚠️ No video file generated."
+          fi
+
+      - name: "🎁 Final Artifacts"
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ai-generated-video
-          path: output_videos/final_video.mp4
+          name: Full-Production-Package
+          path: |
+            final_outputs/
+            result.json
+            error_debug.png
