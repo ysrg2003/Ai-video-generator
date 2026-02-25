@@ -18,6 +18,18 @@ jobs:
         run: python setup_assets.py
 
 # ... (نفس البداية)
+      - name: "Install System Build Dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            python3-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            pkg-config \
+            libffi-dev
+          # هذه المكتبات تسمح لـ pip ببناء wheel لمكتبة manimpango بنجاح
+
       - name: Commit and Push Assets
         run: |
           git config --global user.name "GitHub Action"
