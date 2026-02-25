@@ -13,52 +13,62 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+      actions: write # ضروري لتشغيل ومراقبة Workflows أخرى
+
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: "Setup Python"
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          # تم إزالة خاصية الـ cache هنا لأن الملفات غير موجودة بمستودعك
+      # 1. فك الترسانة (توفر كافة مكتبات Python والمتصفحات)
+      - name: "Unpack Arsenal"
+        run: |
+          if [ -f "vendor_assets.zip" ]; then
+            unzip -q vendor_assets.zip -d .
+            echo "✅ الترسانة جاهزة!"
+          else
+            echo "❌ ملف vendor_assets.zip غير موجود!"
+            exit 1
+          fi
 
+      # 2. تثبيت تبعات النظام الضرورية لـ Manim فقط
       - name: "Install System Dependencies"
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-kacst fonts-noto-core
 
-      - name: "Install Python Libraries"
-        run: |
-          python -m pip install --upgrade pip
-          pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests playwright
-          # تثبيت المتصفح مع كافة التبعات لضمان عمل Camoufox
-          python -m playwright install --with-deps chromium firefox
-
-      - name: "Phase 1 AI Director"
+      # 3. تشغيل خدمة Gemini API وانتظار النتيجة (المرحلة 1)
+      - name: "Phase 1: Get Script from Gemini API"
         env:
-          GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-          USER_PROMPT: ${{ github.event.inputs.prompt }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # تأكد أن ملف main.py موجود في المجلد الرئيسي للمستودع
-          python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
+          echo "🚀 استدعاء Gemini API..."
+          gh workflow run gemini_api.yml -f prompt="أريد سكريبت فيديو عن ${{ github.event.inputs.prompt }}. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
+          
+          sleep 10
+          RUN_ID=$(gh run list --workflow gemini_api.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "📡 مراقبة العملية: $RUN_ID"
+          
+          gh run watch $RUN_ID
+          
+          # تحميل النتيجة result.json
+          gh run download $RUN_ID -n gemini-json
+          echo "✅ تم استلام السيناريو."
 
-      - name: "Phase 2 Render Video"
+      # 4. رندر الفيديو باستخدام مكتبات الترسانة (المرحلة 2)
+      - name: "Phase 2: Render Video"
         run: |
-          # تأكد أن ملف main_pipeline.py موجود في المجلد الرئيسي للمستودع
+          # إضافة مسار مكتبات الترسانة لمسار بايثون
+          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/python
           python main_pipeline.py
 
-      - name: "Phase 3 Archive and Upload"
+      # 5. الأرشفة والرفع (المرحلة 3)
+      - name: "Phase 3: Archive and Upload"
         run: |
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
           
-          # البحث عن الفيديو في المجلد الافتراضي لـ Manim
           VIDEO_FILE=$(find media/videos -name "*.mp4" | head -n 1)
-
-         
-      
+          
           if [ -n "$VIDEO_FILE" ]; then
             mkdir -p output_videos
             cp "$VIDEO_FILE" output_videos/final_video.mp4
@@ -66,14 +76,12 @@ jobs:
             git commit -m "🎬 New Video: ${{ github.event.inputs.prompt }}"
             git push
           else
-            echo "❌ No video found. Check Phase 2 logs."
+            echo "❌ No video found."
             exit 1
           fi
 
-# أضف هذا الجزء في نهاية ملف ai_video_maker.yml
-      - name: "Upload Final Video"
+      - name: "Upload Final Video Artifact"
         uses: actions/upload-artifact@v4
         with:
           name: ai-generated-video
           path: output_videos/final_video.mp4
-   
