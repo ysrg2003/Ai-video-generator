@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AAPI Pro | الترسانة الكاملة</title>
+    <title>Gemini Video AAPI Pro | الترسانة الكاملة</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -14,6 +14,7 @@
             --secondary: #f1f3f4; --user-bubble: #e8f0fe; --bot-bubble: #ffffff;
             --border: #dee2e6; --accent: linear-gradient(135deg, #1a73e8, #701af0);
             --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --success: #00c853;
         }
 
         [data-theme="dark"] {
@@ -63,12 +64,12 @@
             color: var(--text); padding: 12px; border-radius: 10px; font-size: 14px; outline: none;
         }
 
-        /* --- منطقة الدردشة (Scrolling Engine) --- */
+        /* --- منطقة الدردشة --- */
         #chat-viewport {
-            flex-grow: 1; overflow-y: auto; padding: 30px 15% 100px;
+            flex-grow: 1; overflow-y: auto; padding: 30px 15% 120px;
             display: flex; flex-direction: column; gap: 25px; scroll-behavior: smooth;
         }
-        @media (max-width: 800px) { #chat-viewport { padding: 20px 15px 100px; } }
+        @media (max-width: 800px) { #chat-viewport { padding: 20px 15px 120px; } }
 
         .msg-container { display: flex; flex-direction: column; max-width: 90%; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } }
@@ -85,15 +86,21 @@
         .user-align .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; border: 1px solid transparent; }
         .bot-align .bubble { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 
-        .msg-actions {
-            display: flex; gap: 10px; margin-top: 8px; opacity: 0; transition: opacity 0.3s;
+        /* --- نظام تتبع الإنتاج الفني --- */
+        .production-card {
+            margin-top: 15px; padding: 15px; background: var(--secondary);
+            border-radius: 15px; border: 1px solid var(--border); font-size: 14px;
         }
-        .msg-container:hover .msg-actions { opacity: 1; }
+        .step { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; opacity: 0.4; }
+        .step.active { opacity: 1; color: var(--primary); font-weight: 600; }
+        .step.complete { opacity: 1; color: var(--success); }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+        .spinner { border: 2px solid rgba(0,0,0,0.1); border-top: 2px solid var(--primary); border-radius: 50%; width: 12px; height: 12px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .action-link {
-            font-size: 12px; color: var(--primary); cursor: pointer; text-decoration: none;
-            display: flex; align-items: center; gap: 4px; font-weight: 500;
-        }
+        .msg-actions { display: flex; gap: 10px; margin-top: 8px; opacity: 0; transition: opacity 0.3s; }
+        .msg-container:hover .msg-actions { opacity: 1; }
+        .action-link { font-size: 12px; color: var(--primary); cursor: pointer; text-decoration: none; font-weight: 500; }
 
         /* --- الفوتر وشريط الإدخال --- */
         .footer-area {
@@ -124,12 +131,17 @@
 
         #status-bar { font-size: 12px; margin-bottom: 8px; color: var(--primary); font-weight: 600; display: none; }
 
+        .download-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--success); color: white; padding: 10px 20px;
+            border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 10px;
+        }
     </style>
 </head>
 <body data-theme="light">
 
 <header>
-    <div class="logo">Gemini AAPI Pro</div>
+    <div class="logo">Gemini AAPI Pro <small style="font-size: 10px; opacity: 0.5;">V2.0</small></div>
     <div class="nav-tools">
         <button class="tool-btn" onclick="toggleSettings()" title="الإعدادات">⚙️</button>
         <button class="tool-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
@@ -143,20 +155,21 @@
     </div>
     <div class="input-field">
         <label>المستودع (User/Repo)</label>
-        <input type="text" id="ghRepo" placeholder="username/repository">
+        <input type="text" id="ghRepo" placeholder="ysrg2003/Ai-video-generator">
     </div>
 </div>
 
 <div id="chat-viewport">
     <div class="msg-container bot-align">
-        <div class="bubble">مرحباً بك في نظام Gemini AAPI الكامل. قمت بإصلاح التمرير، ميزة النسخ، والوضع الليلي، مع الحفاظ على هيكلية الـ GitHub API الأصلية. اسألني أي شيء!</div>
+        <div class="bubble">مرحباً بك في النسخة المطورة من الترسانة الكاملة.
+النظام الآن مجهز لإنتاج الفيديوهات التعليمية بالكامل. سأقوم بإدارة سكريبت Gemini، معالجة الصوت، ورندر Manim تلقائياً.</div>
     </div>
 </div>
 
 <div class="footer-area">
-    <div id="status-bar">📡 جاري معالجة الطلب عبر GitHub Actions...</div>
+    <div id="status-bar">📡 جاري الاتصال بـ GitHub Actions...</div>
     <div class="input-container">
-        <textarea id="promptInput" rows="1" placeholder="اسأل Gemini..." oninput="autoResize(this)"></textarea>
+        <textarea id="promptInput" rows="1" placeholder="اكتب موضوع الفيديو..." oninput="autoResize(this)"></textarea>
         <button class="send-btn" id="sendBtn" onclick="startProcess()">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
@@ -191,45 +204,44 @@
         el.style.height = el.scrollHeight + 'px';
     }
 
-    // 2. محرك الرسائل
-    function createMessage(text, side) {
+    // 2. محرك الرسائل المتطور
+    function createMessage(text, side, isStatus = false) {
         const viewport = document.getElementById('chat-viewport');
         const container = document.createElement('div');
         container.className = `msg-container ${side}-align`;
         
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
-        bubble.innerText = text;
+        bubble.innerHTML = text;
         container.appendChild(bubble);
 
-        if(side === 'bot') {
+        if(side === 'bot' && !isStatus) {
             const actions = document.createElement('div');
             actions.className = 'msg-actions';
-            actions.innerHTML = `<span class="action-link" onclick="copyText(this, \`${text.replace(/`/g, '\\`')}\`)">📋 نسخ الرد</span>`;
+            actions.innerHTML = `<span class="action-link" onclick="copyText(this, \`${text.replace(/`/g, '\\`')}\`)">📋 نسخ النص</span>`;
             container.appendChild(actions);
         }
 
         viewport.appendChild(container);
         viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+        return bubble;
     }
 
     async function copyText(el, text) {
         await navigator.clipboard.writeText(text);
-        const original = el.innerHTML;
-        el.innerHTML = "✅ تم النسخ!";
-        setTimeout(() => el.innerHTML = original, 2000);
+        el.innerText = "✅ تم النسخ!";
+        setTimeout(() => el.innerText = "📋 نسخ النص", 2000);
     }
 
-    // 3. محرك الأتمتة (GitHub Integration)
+    // 3. محرك الأتمتة (Video Production Integration)
     async function startProcess() {
         const token = document.getElementById('ghToken').value;
         const repo = document.getElementById('ghRepo').value;
         const input = document.getElementById('promptInput');
         const prompt = input.value.trim();
 
-        if(!token || !repo || !prompt) return alert("برجاء ملء جميع البيانات!");
+        if(!token || !repo || !prompt) return alert("برجاء إكمال الإعدادات أولاً!");
 
-        // حفظ الإعدادات
         localStorage.setItem('cfg_token', token);
         localStorage.setItem('cfg_repo', repo);
 
@@ -238,61 +250,62 @@
         document.getElementById('sendBtn').disabled = true;
         document.getElementById('status-bar').style.display = 'block';
 
+        const statusBubble = createMessage(`<b>جاري معالجة طلبك الفني...</b>
+            <div class="production-card" id="tracker">
+                <div class="step active" id="s1"><div class="spinner"></div> تهيئة بيئة GitHub</div>
+                <div class="step" id="s2"><div class="dot"></div> صياغة سكريبت Gemini</div>
+                <div class="step" id="s3"><div class="dot"></div> توليد الصوت والرندر</div>
+                <div class="step" id="s4"><div class="dot"></div> تجميع الفيديو النهائي</div>
+            </div>`, 'bot', true);
+
         try {
-            const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/gemini_api.yml/dispatches`, {
+            // استهداف ملف الفيديو حصرياً
+            const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/ai_video_maker.yml/dispatches`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ref: 'main', inputs: { prompt: prompt } })
             });
 
-            if(!res.ok) throw new Error("فشل إرسال الطلب. تحقق من التوكن وصلاحياته.");
+            if(!res.ok) throw new Error("فشل إرسال الإشارة للأكشن.");
             
-            checkStatus(repo, token);
+            checkStatus(repo, token, statusBubble);
         } catch (e) {
-            createMessage("❌ خطأ: " + e.message, 'bot');
+            statusBubble.innerHTML = "❌ خطأ في النظام: " + e.message;
             resetUI();
         }
     }
 
-    async function checkStatus(repo, token) {
-        let attempts = 0;
+    async function checkStatus(repo, token, bubble) {
+        let lastStatus = "";
         const interval = setInterval(async () => {
-            attempts++;
-            const res = await fetch(`https://api.github.com/repos/${repo}/actions/runs?per_page=1`, {
+            const res = await fetch(`https://api.github.com/repos/${repo}/actions/runs?per_page=1&workflow=ai_video_maker.yml`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
             const run = data.workflow_runs[0];
 
-            if(run && run.status === "completed") {
-                clearInterval(interval);
-                if(run.conclusion === "success") fetchArtifact(repo, run.id, token);
-                else { createMessage("❌ فشل الأكشن في تنفيذ المهمة.", 'bot'); resetUI(); }
+            if(!run) return;
+
+            if(run.status === "in_progress") {
+                const duration = (new Date() - new Date(run.run_started_at)) / 1000;
+                document.getElementById('s1').className = "step complete";
+                if(duration > 30) document.getElementById('s2').className = "step active";
+                if(duration > 90) { document.getElementById('s2').className = "step complete"; document.getElementById('s3').className = "step active"; }
             }
-            if(attempts > 30) { clearInterval(interval); resetUI(); } // مهلة 5 دقائق
+
+            if(run.status === "completed") {
+                clearInterval(interval);
+                if(run.conclusion === "success") {
+                    document.getElementById('s3').className = "step complete";
+                    document.getElementById('s4').className = "step complete";
+                    bubble.innerHTML += `<br>✨ تم الإنتاج بنجاح!<br>
+                    <a href="https://github.com/${repo}/actions/runs/${run.id}" target="_blank" class="download-btn">📥 تحميل الفيديو من GitHub</a>`;
+                } else {
+                    bubble.innerHTML += "<br>❌ فشل الإنتاج. تحقق من الـ Logs.";
+                }
+                resetUI();
+            }
         }, 8000);
-    }
-
-    async function fetchArtifact(repo, runId, token) {
-        try {
-            const res = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-            const art = data.artifacts.find(a => a.name === 'gemini-json');
-
-            const zipRes = await fetch(art.archive_download_url, { headers: { 'Authorization': `Bearer ${token}` } });
-            const blob = await zipRes.blob();
-            const jszip = new JSZip();
-            const zipContent = await jszip.loadAsync(blob);
-            const jsonStr = await zipContent.file("result.json").async("string");
-            
-            createMessage(JSON.parse(jsonStr).response, 'bot');
-        } catch (e) {
-            createMessage("❌ فشل جلب ملف النتيجة النهائي.", 'bot');
-        } finally {
-            resetUI();
-        }
     }
 
     function resetUI() {
