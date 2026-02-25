@@ -141,7 +141,7 @@ class GeminiAutomator:
 
                 # مراقبة النمو الذكي (Smart Stability Monitor)
                 response_sel = ".model-response-text"
-                await page.wait_for_selector(response_selector=response_sel, timeout=60000)
+                await page.wait_for_selector(selector=response_sel, timeout=60000)
                 
                 prev_len = 0
                 stable_count = 0
