@@ -17,10 +17,28 @@ jobs:
         with:
           python-version: '3.11'
 
+      # --- الخطوة المفقودة التي تسببت في الخطأ ---
+      - name: Unpack Arsenal
+        run: |
+          if [ -f "vendor_assets.zip" ]; then
+            unzip -q vendor_assets.zip -d .
+            # إعطاء صلاحيات التنفيذ للمتصفحات لضمان عمل Playwright
+            chmod -R +x browsers/ 2>/dev/null || true
+            echo "✅ الترسانة جاهزة للاستخدام"
+          else
+            echo "❌ خطأ: ملف vendor_assets.zip غير موجود في المستودع!"
+            exit 1
+          fi
+
       - name: Run
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-        run: python main.py "${{ github.event.inputs.prompt }}"
+          # إخبار Playwright بمكان المتصفحات داخل الترسانة
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/browsers
+        run: |
+          # إضافة مجلد python للمسار لكي يجد بايثون المكتبات
+          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/python
+          python main.py "${{ github.event.inputs.prompt }}"
 
       - name: Result
         uses: actions/upload-artifact@v4
