@@ -1,0 +1,62 @@
+name: Ultimate AI Video Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'ما هو موضوع الفيديو؟'
+        required: true
+        default: 'ما هو الـ DNS؟'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config
+
+      - name: Install Python Libraries
+        run: |
+          # تثبيت المكتبات اللازمة للمحركين (المستخرج والمونتاج)
+          pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests
+
+      - name: Phase 1: AI Director (Extracting Script)
+        env:
+          GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
+        run: |
+          # ملاحظة: قمنا بصياغة البرومبت هنا بدقة هندسية لإجبار Gemini على الالتزام بصيغة JSON
+          PROMPT_ENGINEERING="أريد سكريبت فيديو عن ${{ github.event.inputs.prompt }}. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
+          python main.py "$PROMPT_ENGINEERING"
+
+      - name: Phase 2: Render Video (Visual Engine)
+        run: |
+          # تشغيل المحرك الشامل الذي يقرأ result.json ويصنع الفيديو
+          python main_pipeline.py
+
+      - name: Phase 3: Archive and Upload Video
+        run: |
+          git config --global user.name "VideoBot"
+          git config --global user.email "bot@video.com"
+          
+          # تأكد من المسار الصحيح الذي يحفظ فيه Manim الفيديو
+          # في الكود الخاص بنا، قمنا بتسمية الفيديو final_video
+          VIDEO_PATH="media/videos/main_pipeline/1080p60/final_video.mp4"
+          
+          if [ -f "$VIDEO_PATH" ]; then
+            git add "$VIDEO_PATH"
+            git commit -m "🎬 تم إنتاج فيديو جديد عن: ${{ github.event.inputs.prompt }}"
+            git push
+          else
+            echo "❌ لم يتم العثور على الفيديو، قد يكون هناك خطأ في الرندر."
+            exit 1
+          fi
