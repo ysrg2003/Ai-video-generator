@@ -1,5 +1,4 @@
 name: Ultimate AI Video Production
-on: workflow_dispatch
 on:
   workflow_dispatch:
     inputs:
@@ -11,13 +10,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # ميزة: السماح للأكشن بالكتابة في المستودع
     permissions:
       contents: write
     
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python 3.10
         uses: actions/setup-python@v4
@@ -27,7 +25,8 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config
+          # إضافة خطوط عربية لضمان ظهور النص في مانيم
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-arabic
 
       - name: Install Python Libraries
         run: |
@@ -36,15 +35,14 @@ jobs:
       - name: Phase 1: AI Director (Extracting Script)
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-          # تمرير المدخلات كمتغير بيئة لتجنب أخطاء الـ YAML Syntax
           USER_PROMPT: ${{ github.event.inputs.prompt }}
         run: |
-          # الآن ندمج النص داخل لغة Bash وليس داخل YAML مباشرة
-          FINAL_PROMPT="أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
-          python main.py "$FINAL_PROMPT"
+          # نرسل البرومبت لملف main.py الذي سيتعامل مع Gemini
+          python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
 
       - name: Phase 2: Render Video (Visual Engine)
         run: |
+          # تأكد أن main_pipeline سيقرأ من result.json الذي أنتجه main.py
           python main_pipeline.py
 
       - name: Phase 3: Archive and Upload Video
@@ -52,10 +50,10 @@ jobs:
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
           
-          # البحث عن أي ملف mp4 تم إنتاجه
+          # تعديل مسار البحث عن الفيديو ليتوافق مع مخرجات Manim الافتراضية
           VIDEO_FILE=$(find media/videos -name "*.mp4" | head -n 1)
           
-          if [ -f "$VIDEO_FILE" ]; then
+          if [ -n "$VIDEO_FILE" ]; then
             mkdir -p output_videos
             cp "$VIDEO_FILE" output_videos/final_video.mp4
             git add output_videos/final_video.mp4
