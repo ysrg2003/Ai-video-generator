@@ -33,18 +33,19 @@ jobs:
         run: |
           pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests
 
-      - name: Phase 1: AI Director (Extracting Script)
+      - name: Phase 1 AI Director
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
           USER_PROMPT: ${{ github.event.inputs.prompt }}
         run: |
-          python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
+          # لاحظ استخدام علامات التنصيص المفردة لمنع أي تداخل مع لغة YAML
+          python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
 
-      - name: Phase 2: Render Video (Visual Engine)
+      - name: Phase 2 Render Video
         run: |
           python main_pipeline.py
 
-      - name: Phase 3: Archive and Upload Video
+      - name: Phase 3 Archive and Upload Video
         run: |
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
