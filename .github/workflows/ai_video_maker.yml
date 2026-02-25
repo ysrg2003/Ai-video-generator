@@ -1,130 +1,153 @@
-name: "🚀 Ultimate AI Video Production"
+name: "🚀 Ultimate AI Video Production (Unrestricted Version)"
 
 on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: 'ما هو موضوع الفيديو؟'
+        description: 'ما هو موضوع الفيديو؟ (سيتم تمريره لـ Gemini)'
         required: true
         default: 'ما هو الـ DNS؟'
 
 jobs:
   production:
     runs-on: ubuntu-latest
+    timeout-minutes: 60 # ضمان عدم انقطاع الرندر الطويل
     permissions:
       contents: write
       actions: write
       id-token: write
 
     steps:
-      - name: "📦 Checkout Repository"
+      - name: "📦 1. Checkout Full Source"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # لجلب كامل التاريخ لضمان نجاح الـ Push
+          fetch-depth: 0
 
-      - name: "🐍 Set up Python 3.11"
+      - name: "🐍 2. Setup Python 3.11 (Native)"
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # --- إدارة الترسانة (Arsenal Management) ---
-      - name: "📂 Restore Arsenal Cache"
+      # --- إدارة الترسانة (Arsenal Persistence Strategy) ---
+      - name: "📂 3. Restore Arsenal from Cache"
         id: cache-arsenal
         uses: actions/cache@v4
         with:
           path: vendor_extracted
           key: arsenal-v1-cache-${{ runner.os }}
 
-      - name: "📥 Download & Setup Arsenal (If Cache Miss)"
+      - name: "📥 4. Download Arsenal from Release (On Cache Miss)"
         if: steps.cache-arsenal.outputs.cache-hit != 'true'
-        run: |
-          echo "🌐 Downloading Release Asset..."
-          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               -o vendor_assets.zip \
-               "https://github.com/${{ github.repository }}/releases/download/arsenal-v1/vendor_assets.zip"
-          
-          echo "📦 Unzipping Arsenal..."
-          unzip -q vendor_assets.zip -d vendor_extracted
-          
-          echo "🔑 Fixing Permissions..."
-          find vendor_extracted -type f -name "node" -exec chmod +x {} +
-          find vendor_extracted -type f -name "chrome" -exec chmod +x {} +
-          find vendor_extracted -type f -name "firefox" -exec chmod +x {} +
-          chmod -R +x vendor_extracted/python/bin 2>/dev/null || true
-
-      # --- بيئة الرندر (Rendering Environment) ---
-      - name: "🛠️ Install System Dependencies (Manim Core)"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config \
-          fonts-freefont-ttf fonts-kacst fonts-noto-core texlive texlive-fonts-extra
-
-      # --- المرحلة الأولى: الذكاء الاصطناعي ---
-      - name: "🤖 Phase 1: Script Generation (Gemini)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "📡 Triggering Gemini Workflow..."
+          echo "🌐 Arsenal not in cache. Downloading from Release..."
+          gh release download arsenal-v1 -p "vendor_assets.zip"
+          
+          echo "📦 Unzipping Arsenal..."
+          unzip -o -q vendor_assets.zip -d vendor_extracted
+          
+      - name: "🔑 5. Deep Permission & Environment Inoculation"
+        run: |
+          echo "🛠️ Granting Global Execution Permissions..."
+          # منح صلاحية التنفيذ لكافة الملفات الثنائية في الترسانة بشكل تكراري
+          chmod -R +x vendor_extracted/python/bin/ || true
+          
+          # ربط محركات المتصفح (Playwright)
+          find vendor_extracted -type f -executable -exec chmod +x {} +
+          
+          echo "✅ Permissions Synchronized."
+
+      - name: "🛠️ 6. System Core Dependencies (Manim & Latex Full)"
+        run: |
+          sudo apt-get update
+          # تثبيت التبعات مع دعم كامل للخطوط والـ Latex لضمان عدم فشل رندر المعادلات
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config \
+          fonts-freefont-ttf fonts-kacst fonts-noto-core \
+          texlive texlive-latex-extra texlive-fonts-extra texlive-lang-arabic \
+          dvisvgm
+
+      # --- المرحلة الأولى: محرك الذكاء الاصطناعي (Gemini Orchestration) ---
+      - name: "🤖 7. Phase 1: Scripting (Asynchronous Call)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📡 Dispatching Gemini API Workflow..."
           gh workflow run gemini_api.yml -f prompt="${{ github.event.inputs.prompt }}"
           
-          echo "⏳ Waiting for Gemini to think..."
-          sleep 20 # زيادة وقت الانتظار لضمان التسجيل
+          echo "⏳ Waiting for Workflow Registration (Anti-Race Condition)..."
+          sleep 40 # زيادة الوقت لضمان استقرار سجلات GitHub
           
           RUN_ID=$(gh run list --workflow gemini_api.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-          echo "🔍 Monitoring Run ID: $RUN_ID"
+          echo "🔍 Monitoring Run: $RUN_ID"
           
           gh run watch $RUN_ID
           
-          # التحقق من نجاح العملية
+          # التحقق الصارم من حالة النجاح قبل المتابعة
           CONCLUSION=$(gh run view $RUN_ID --json conclusion --jq '.conclusion')
           if [ "$CONCLUSION" != "success" ]; then
-            echo "❌ Gemini API Workflow failed!"
+            echo "❌ ERROR: Gemini Workflow failed with status: $CONCLUSION"
             exit 1
           fi
           
-          gh run download $RUN_ID -n gemini-json
-          echo "✅ Script received successfully."
-
-      # --- المرحلة الثانية: صناعة الفيديو ---
-      - name: "🎬 Phase 2: Rendering Video (Manim)"
-        run: |
-          # حقن المسارات في بيئة النظام
-          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/vendor_extracted/python
-          export PLAYWRIGHT_BROWSERS_PATH=${{ github.workspace }}/vendor_extracted/browsers
-          export PATH=$PATH:${{ github.workspace }}/vendor_extracted/python/bin
+          # تحميل الملف مع فرض المسار (dir .) لمنع خطأ "Line 1 Column 1"
+          gh run download $RUN_ID -n gemini-json --dir .
           
-          echo "⚙️ Starting Main Pipeline..."
+          echo "✅ Content of result.json verified:"
+          ls -lh result.json
+          cat result.json
+
+      # --- المرحلة الثانية: محرك الرسوميات (The Manim Rendering Engine) ---
+      - name: "🎬 8. Phase 2: Heavy-Duty Video Rendering"
+        env:
+          # حقن المسارات في البيئة العالمية لـ Step لضمان رؤية 'manim' كأمر نظام
+          PYTHONPATH: ${{ github.workspace }}/vendor_extracted/python
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/vendor_extracted/browsers
+          # إضافة bin الخاص بالترسانة إلى PATH النظام
+          PATH: ${{ github.workspace }}/vendor_extracted/python/bin:${{ env.PATH }}
+        run: |
+          echo "⚙️ Initializing Main Pipeline..."
+          # التحقق من وجود المكتبات قبل البدء
+          python -c "import manim; print('✅ Manim Library Found')"
+          
+          # تشغيل السكريبت الرئيسي (الذي سيقوم باستدعاء python -m manim داخلياً)
           python main_pipeline.py
 
-      # --- المرحلة الثالثة: الحفظ والنشر ---
-      - name: "📤 Phase 3: Archive & Push"
+      # --- المرحلة الثالثة: الحفظ والتدقيق (Persistence & Deployment) ---
+      - name: "📤 9. Phase 3: Smart Archiving & Git Push"
         if: always()
         run: |
-          git config --global user.name "AI-Video-Bot"
-          git config --global user.email "bot@ai-video.com"
+          git config --global user.name "Production-Bot"
+          git config --global user.email "bot@video-factory.ai"
           
-          # البحث عن ملف الفيديو الناتج
-          VIDEO_PATH=$(find media/videos -name "*.mp4" | head -n 1)
+          # البحث الشامل عن الفيديو (تجاوز هيكلية المجلدات المتغيرة)
+          VIDEO_FILE=$(find . -maxdepth 10 -name "*.mp4" | grep -v "vendor_extracted" | head -n 1)
           
-          if [ -n "$VIDEO_PATH" ]; then
-            echo "✅ Video found at: $VIDEO_PATH"
+          if [ -n "$VIDEO_FILE" ]; then
+            echo "✅ Final Video Found: $VIDEO_FILE"
             mkdir -p final_outputs
-            cp "$VIDEO_PATH" final_outputs/video_$(date +%Y%m%d_%H%M%S).mp4
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            cp "$VIDEO_FILE" "final_outputs/video_${TIMESTAMP}.mp4"
             
-            # محاولة الرفع للمستودع (اختياري)
+            # محاولة الرفع للمستودع (مع معالجة فشل الـ Push في الفروع المحمية)
             git add final_outputs/
-            git commit -m "🎬 Generated: ${{ github.event.inputs.prompt }}" || echo "No changes to commit"
-            git push origin main || echo "Push failed, but video is safe in artifacts."
+            git commit -m "🎬 NEW PRODUCTION: ${{ github.event.inputs.prompt }}" || echo "Nothing to commit"
+            git push origin main || echo "⚠️ Git push failed, video saved in artifacts."
           else
-            echo "⚠️ No video file generated."
+            echo "❌ CRITICAL ERROR: Manim finished but no .mp4 file was found!"
+            # البحث عن ملفات اللوج لتشخيص السبب
+            find . -name "*.log"
+            exit 1
           fi
 
-      - name: "🎁 Final Artifacts"
+      - name: "🎁 10. Archive All Production Assets"
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Full-Production-Package
+          name: AI-Video-Production-Package
           path: |
             final_outputs/
             result.json
+            production_assets/
             error_debug.png
+            media/
