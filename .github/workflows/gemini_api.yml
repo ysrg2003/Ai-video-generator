@@ -17,31 +17,39 @@ jobs:
         with:
           python-version: '3.11'
 
-      # --- الخطوة المفقودة التي تسببت في الخطأ ---
       - name: Unpack Arsenal
         run: |
           if [ -f "vendor_assets.zip" ]; then
+            echo "📦 جاري فك ضغط الترسانة (المكتبات والمتصفحات)..."
             unzip -q vendor_assets.zip -d .
-            # إعطاء صلاحيات التنفيذ للمتصفحات لضمان عمل Playwright
-            chmod -R +x browsers/ 2>/dev/null || true
-            echo "✅ الترسانة جاهزة للاستخدام"
+            
+            echo "🔑 تأمين صلاحيات المحركات التنفيذية..."
+            # نمنح صلاحيات التنفيذ لكافة الملفات داخل مجلد المتصفحات لضمان عمل Camoufox
+            find ./browsers -type f -exec chmod +x {} + 2>/dev/null || true
+            
+            echo "✅ الترسانة جاهزة للاستخدام."
           else
             echo "❌ خطأ: ملف vendor_assets.zip غير موجود في المستودع!"
             exit 1
           fi
 
-      - name: Run
+      - name: Run Gemini Logic
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-          # إخبار Playwright بمكان المتصفحات داخل الترسانة
+          # تعريف مسار المتصفحات لبيئة النظام
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/browsers
         run: |
-          # إضافة مجلد python للمسار لكي يجد بايثون المكتبات
-          export PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/python
+          # حقن مجلد python الخاص بالترسانة في PYTHONPATH لضمان استيراد Camoufox والمكتبات الأخرى
+          export PYTHONPATH="${{ github.workspace }}/python:$PYTHONPATH"
+          
+          echo "🚀 جاري تشغيل المحرك الرئيسي..."
           python main.py "${{ github.event.inputs.prompt }}"
 
-      - name: Result
+      - name: Upload Result
+        if: always() # لضمان رفع النتيجة حتى لو حدث خطأ جزئي للتشخيص
         uses: actions/upload-artifact@v4
         with:
           name: gemini-json
-          path: result.json
+          path: |
+            result.json
+            error_debug_gemini.png
