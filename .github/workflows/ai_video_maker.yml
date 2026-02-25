@@ -1,4 +1,5 @@
 name: Ultimate AI Video Production
+
 on:
   workflow_dispatch:
     inputs:
@@ -25,8 +26,8 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          # إضافة خطوط عربية لضمان ظهور النص في مانيم
           sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-arabic
+          python -m playwright install chromium
 
       - name: Install Python Libraries
         run: |
@@ -37,12 +38,10 @@ jobs:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
           USER_PROMPT: ${{ github.event.inputs.prompt }}
         run: |
-          # نرسل البرومبت لملف main.py الذي سيتعامل مع Gemini
           python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
 
       - name: Phase 2: Render Video (Visual Engine)
         run: |
-          # تأكد أن main_pipeline سيقرأ من result.json الذي أنتجه main.py
           python main_pipeline.py
 
       - name: Phase 3: Archive and Upload Video
@@ -50,7 +49,6 @@ jobs:
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
           
-          # تعديل مسار البحث عن الفيديو ليتوافق مع مخرجات Manim الافتراضية
           VIDEO_FILE=$(find media/videos -name "*.mp4" | head -n 1)
           
           if [ -n "$VIDEO_FILE" ]; then
