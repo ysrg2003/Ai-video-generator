@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # ميزة لتسريع التشغيل المرة القادمة
+          # تم إزالة خاصية الـ cache هنا لأن الملفات غير موجودة بمستودعك
 
       - name: "Install System Dependencies"
         run: |
@@ -31,21 +31,22 @@ jobs:
 
       - name: "Install Python Libraries"
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests playwright
-          # الخطوة الحاسمة: تثبيت متصفح بايثون وتأكيد التنفيذ
-          python -m playwright install --with-deps chromium
+          # تثبيت المتصفح مع كافة التبعات لضمان عمل Camoufox
+          python -m playwright install --with-deps chromium firefox
 
       - name: "Phase 1 AI Director"
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
           USER_PROMPT: ${{ github.event.inputs.prompt }}
         run: |
-          # نستخدم python -m لضمان استدعاء الموديول من نفس البيئة
+          # تأكد أن ملف main.py موجود في المجلد الرئيسي للمستودع
           python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
 
       - name: "Phase 2 Render Video"
         run: |
+          # تأكد أن ملف main_pipeline.py موجود في المجلد الرئيسي للمستودع
           python main_pipeline.py
 
       - name: "Phase 3 Archive and Upload"
@@ -53,6 +54,7 @@ jobs:
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
           
+          # البحث عن الفيديو في المجلد الافتراضي لـ Manim
           VIDEO_FILE=$(find media/videos -name "*.mp4" | head -n 1)
           
           if [ -n "$VIDEO_FILE" ]; then
@@ -62,6 +64,6 @@ jobs:
             git commit -m "🎬 New Video: ${{ github.event.inputs.prompt }}"
             git push
           else
-            echo "❌ No video found."
+            echo "❌ No video found. Check Phase 2 logs."
             exit 1
           fi
