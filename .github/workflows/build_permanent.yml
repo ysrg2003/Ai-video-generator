@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # ضروري جداً للسماح للأكشن بإنشاء Release
     steps:
       - uses: actions/checkout@v4
 
@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 1. تثبيت مكتبات النظام أولاً (الخطوة الأهم)
+      # 1. تثبيت مكتبات النظام لضمان نجاح بناء مكتبة Manim
       - name: "Install System Build Dependencies"
         run: |
           sudo apt-get update
@@ -27,14 +27,19 @@ jobs:
             libffi-dev \
             libpangocairo-1.0-0
 
-      # 2. الآن تشغيل السكربت بعد جاهزية البيئة
+      # 2. تشغيل السكربت لإنشاء ملف vendor_assets.zip (200MB+)
       - name: Download and Build Arsenal
         run: python setup_assets.py
 
-      - name: Commit and Push Assets
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add vendor_assets.zip
-          git commit -m "Update arsenal with Manim dependencies" || echo "No changes to commit"
-          git push
+      # 3. رفع الملف كـ Release (الحل البديل لـ git push)
+      - name: Create Release and Upload Arsenal
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: arsenal-v1 # الوسم الذي سنستخدمه لتحميل الملف لاحقاً
+          name: "Arsenal Assets v1.0"
+          body: "تحتوي هذه النسخة على كافة المكتبات والمتصفحات اللازمة للتشغيل (Manim, Playwright, Camoufox)"
+          draft: false
+          prerelease: false
+          files: vendor_assets.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # توكن تلقائي من GitHub
