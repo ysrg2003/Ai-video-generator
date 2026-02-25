@@ -17,39 +17,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Unpack Arsenal
-        run: |
-          if [ -f "vendor_assets.zip" ]; then
-            echo "📦 جاري فك ضغط الترسانة (المكتبات والمتصفحات)..."
-            unzip -q vendor_assets.zip -d .
-            
-            echo "🔑 تأمين صلاحيات المحركات التنفيذية..."
-            # نمنح صلاحيات التنفيذ لكافة الملفات داخل مجلد المتصفحات لضمان عمل Camoufox
-            find ./browsers -type f -exec chmod +x {} + 2>/dev/null || true
-            
-            echo "✅ الترسانة جاهزة للاستخدام."
-          else
-            echo "❌ خطأ: ملف vendor_assets.zip غير موجود في المستودع!"
-            exit 1
-          fi
-
-      - name: Run Gemini Logic
+      - name: Run
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-          # تعريف مسار المتصفحات لبيئة النظام
-          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/browsers
-        run: |
-          # حقن مجلد python الخاص بالترسانة في PYTHONPATH لضمان استيراد Camoufox والمكتبات الأخرى
-          export PYTHONPATH="${{ github.workspace }}/python:$PYTHONPATH"
-          
-          echo "🚀 جاري تشغيل المحرك الرئيسي..."
-          python main.py "${{ github.event.inputs.prompt }}"
+        run: python main.py "${{ github.event.inputs.prompt }}"
 
-      - name: Upload Result
-        if: always() # لضمان رفع النتيجة حتى لو حدث خطأ جزئي للتشخيص
+      - name: Result
         uses: actions/upload-artifact@v4
         with:
           name: gemini-json
-          path: |
-            result.json
-            error_debug_gemini.png
+          path: result.json
