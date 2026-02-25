@@ -2,178 +2,199 @@ import asyncio
 import sys
 import json
 import os
-import shutil
 import zipfile
 import stat
+import re
+import logging
+import shutil
+from datetime import datetime
 
 # ==========================================================
-# 1. نظام إدارة البيئة الذكية (Smart Environment Manager)
+# 0. نظام التسجيل والمراقبة (Industrial Logging)
 # ==========================================================
-current_dir = os.getcwd()
-zip_path = os.path.join(current_dir, "vendor_assets.zip")
-extract_path = os.path.join(current_dir, "vendor_extracted")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("GeminiFactory")
 
-def prepare_environment():
-    """تجهيز البيئة سواء من الكاش أو من ملف Zip"""
-    # الحالة أ: المجلد موجود مسبقاً (بفضل GitHub Actions Cache)
-    if os.path.exists(extract_path):
-        print("🚀 تم العثور على الترسانة جاهزة (عبر Cache)، جاري تخطي مرحلة الفك.")
-        return True
+# ==========================================================
+# 1. مدير الترسانة (Arsenal & Environment Manager)
+# ==========================================================
+class ArsenalManager:
+    """المسؤول عن إعداد بيئة التشغيل السحابية وضمان عمل المكتبات"""
+    def __init__(self):
+        self.cwd = os.getcwd()
+        self.zip_path = os.path.join(self.cwd, "vendor_assets.zip")
+        self.extract_path = os.path.join(self.cwd, "vendor_extracted")
+        self.python_dir = os.path.join(self.extract_path, "python")
+        self.browsers_dir = os.path.join(self.extract_path, "browsers")
 
-    # الحالة ب: المجلد غير موجود ولكن ملف الـ Zip موجود (تحميل جديد من Release)
-    if os.path.exists(zip_path):
-        print("📦 مجلد الترسانة غير موجود، جاري الفك من vendor_assets.zip...")
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_path)
-            
-            print("🔑 جاري إصلاح صلاحيات الملفات التنفيذية...")
-            for root, dirs, files in os.walk(extract_path):
-                for name in files:
-                    # منح صلاحية التنفيذ لملفات المتصفح و node
-                    if any(key in name for key in ["node", "chrome", "firefox"]) or name.endswith(".sh"):
-                        file_path = os.path.join(root, name)
-                        try:
-                            st = os.stat(file_path)
-                            os.chmod(file_path, st.st_mode | stat.S_IEXEC)
-                        except:
-                            pass
-            print("✅ تم فك الترسانة وتجهيز الصلاحيات بنجاح.")
-            return True
-        except Exception as e:
-            print(f"❌ فشل فك ضغط الترسانة: {e}")
+    def deploy(self):
+        """تشغيل الترسانة: فك، إصلاح، وحقن مسارات"""
+        if os.path.exists(self.extract_path):
+            logger.info("🚀 تم العثور على الترسانة جاهزة في الكاش.")
+            return self._activate()
+
+        if not os.path.exists(self.zip_path):
+            logger.error("❌ ملف vendor_assets.zip مفقود!")
             return False
 
-    # الحالة ج: لا يوجد كاش ولا يوجد ملف Zip
-    print("❌ خطأ فادح: لم يتم العثور على المجلد المستخرج ولا ملف vendor_assets.zip!")
-    return False
-
-# تنفيذ التحقق من البيئة قبل أي استيراد للمكتبات الخارجية
-if not prepare_environment():
-    sys.exit(1)
-
-# ==========================================================
-# 2. حقن المسارات المخصصة (Path Redirection)
-# ==========================================================
-# حقن المكتبات (مجلد python) والمتصفحات (مجلد browsers)
-vendor_python = os.path.join(extract_path, "python")
-vendor_browsers = os.path.join(extract_path, "browsers")
-
-if os.path.exists(vendor_python):
-    sys.path.insert(0, vendor_python) 
-    
-if os.path.exists(vendor_browsers):
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = vendor_browsers
-
-# ==========================================================
-# 3. الاستيراد الآمن لمحرك التخفي (Stealth Engine)
-# ==========================================================
-try:
-    from camoufox.async_api import AsyncCamoufox
-    print("✅ تم تحميل محرك Camoufox بنجاح.")
-except ImportError as e:
-    print(f"❌ خطأ فادح: المكتبات غير موجودة في المسار المحدد. {e}")
-    sys.exit(1)
-
-GEMINI_URL = "https://gemini.google.com/app"
-
-# ==========================================================
-# 4. المحرك الأساسي للأتمتة (Core Engine)
-# ==========================================================
-async def run_gemini_automation(prompt):
-    print(f"🚀 بدء المهمة... السؤال: {prompt}")
-    
-    # استخدام المتصفح في وضع Headless مع إعدادات التخفي
-    async with AsyncCamoufox(headless=True) as browser:
-        context = await browser.new_context(
-            viewport={'width': 1280, 'height': 800},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-
-        # استعادة الجلسة عبر الكوكيز من إعدادات GitHub Secrets
-        cookies_json = os.getenv("GEMINI_COOKIES")
-        if cookies_json:
-            try:
-                await context.add_cookies(json.loads(cookies_json))
-                print("✅ تم استعادة الجلسة (Cookies) بنجاح.")
-            except Exception as e:
-                print(f"⚠️ فشل تحميل الكوكيز: {e}")
-
-        page = await context.new_page()
-        
-        # حظر الصور والخطوط لتسريع العملية وتقليل استهلاك البيانات
-        await page.route("**/*.{png,jpg,jpeg,svg,gif,webp,woff,woff2,ttf}", lambda route: route.abort())
-        
         try:
-            print("⏳ جاري الدخول إلى Gemini...")
-            await page.goto(GEMINI_URL, wait_until="domcontentloaded", timeout=60000)
-
-            # البحث عن مربع إدخال النص
-            input_selector = "div[role='textbox'], [contenteditable='true']"
-            await page.wait_for_selector(input_selector, timeout=30000)
+            logger.info("📦 جاري فك الترسانة الكبرى (هذه العملية تحدث مرة واحدة)...")
+            with zipfile.ZipFile(self.zip_path, 'r') as z:
+                z.extractall(self.extract_path)
             
-            print("✍️ كتابة السؤال وإرساله...")
-            await page.fill(input_selector, prompt)
-            await page.keyboard.press("Enter")
-            
-            print("📡 بانتظار الرد (مراقبة النمو)...")
-            response_selector = ".model-response-text"
-            
-            # انتظار ظهور بداية الرد
-            await page.wait_for_selector(response_selector, timeout=60000)
-            
-            previous_length = 0
-            stable_checks = 0
-            
-            # حلقة لمراقبة استقرار النص (للتأكد من اكتمال الإجابة الطويلة)
-            for i in range(40): 
-                current_text = await page.evaluate(f'''() => {{
-                    const res = document.querySelectorAll("{response_selector}");
-                    return res.length > 0 ? res[res.length - 1].innerText : "";
-                }}''')
-                
-                current_length = len(current_text)
-                
-                if current_length > previous_length:
-                    print(f"✍️ Gemini يكتب... ({current_length} حرف)")
-                    # تمرير تلقائي للأسفل لمواكبة النص
-                    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-                    previous_length = current_length
-                    stable_checks = 0 
-                else:
-                    stable_checks += 1
-                
-                # إذا استقر النص لـ 3 دورات فحص، نعتبره انتهى
-                if stable_checks >= 3 and current_length > 0:
-                    print("✅ توقف النص عن النمو، تم اكتمال الإجابة.")
-                    break
-                
-                await asyncio.sleep(2)
-
-            # استخراج النص النهائي
-            final_text = await page.evaluate('''() => {
-                const responses = document.querySelectorAll(".model-response-text");
-                return responses.length > 0 ? responses[responses.length - 1].innerText : "فشل استخراج النص.";
-            }''')
-
-            output = {
-                "status": "success",
-                "prompt": prompt,
-                "response": final_text
-            }
-            print("✅ المهمة اكتملت بنجاح.")
-
+            self._fix_binary_permissions()
+            return self._activate()
         except Exception as e:
-            print(f"❌ خطأ تشغيلي: {str(e)}")
-            # حفظ لقطة شاشة للخطأ للتشخيص
-            await page.screenshot(path="error_debug.png")
-            output = {"status": "error", "message": str(e)}
+            logger.error(f"❌ فشل نشر الترسانة: {e}")
+            return False
 
-        # حفظ النتيجة النهائية في ملف JSON
-        with open("result.json", "w", encoding="utf-8") as f:
-            json.dump(output, f, ensure_ascii=False, indent=4)
+    def _fix_binary_permissions(self):
+        """منح صلاحيات التنفيذ لـ Node و Chromium وكافة السكربتات"""
+        logger.info("🔑 إصلاح صلاحيات الملفات الثنائية (Execution Bits)...")
+        exec_keywords = ["node", "chrome", "firefox", "ffmpeg", "manim"]
+        for root, _, files in os.walk(self.extract_path):
+            for name in files:
+                if any(key in name for key in exec_keywords) or name.endswith(".sh"):
+                    fpath = os.path.join(root, name)
+                    os.chmod(fpath, os.stat(fpath).st_mode | stat.S_IEXEC)
+
+    def _activate(self):
+        """حقن المسارات في ذاكرة النظام الحالية"""
+        if os.path.exists(self.python_dir):
+            sys.path.insert(0, self.python_dir)
+            os.environ["PYTHONPATH"] = f"{self.python_dir}:{os.environ.get('PYTHONPATH', '')}"
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = self.browsers_dir
+            logger.info("✅ تم تفعيل المسارات بنجاح.")
+            return True
+        return False
+
+# ==========================================================
+# 2. مهندس الأتمتة (Gemini Automation Engine)
+# ==========================================================
+class GeminiAutomator:
+    """المحرك المسؤول عن استخراج المعرفة من Gemini بصيغة برمجية"""
+    def __init__(self):
+        self.endpoint = "https://gemini.google.com/app"
+        self.output_file = "result.json"
+
+    def _build_system_prompt(self, user_query):
+        """تغليف طلب المستخدم ببروتوكول صارم لضمان مخرجات JSON"""
+        return f"""
+        Objective: Generate a Manim-compatible educational video script.
+        Topic: {user_query}
+        Language: Arabic
+        
+        Strict JSON Output Required (Array of Objects):
+        [
+          {{"text": "الجملة العربية هنا", "duration": 6}},
+          {{"text": "الجملة التالية هنا", "duration": 5}}
+        ]
+        
+        Rules:
+        - Response must be ONLY the JSON array.
+        - Duration should match reading speed (approx 2-3 words per second).
+        - No markdown formatting or extra talk.
+        """
+
+    def _extract_clean_json(self, raw_text):
+        """تنظيف الرد من أي شوائب نصية واستخراج مصفوفة JSON"""
+        try:
+            # البحث عن المصفوفة بين [ ]
+            match = re.search(r'\[\s*{.*}\s*\]', raw_text, re.DOTALL)
+            if match:
+                return match.group(0)
+            return raw_text
+        except:
+            return raw_text
+
+    async def run(self, prompt):
+        # استيراد Camoufox بعد تأمين البيئة
+        from camoufox.async_api import AsyncCamoufox
+        
+        wrapped_prompt = self._build_system_prompt(prompt)
+        logger.info(f"📡 إرسال المهمة لـ Gemini: {prompt}")
+
+        async with AsyncCamoufox(headless=True) as browser:
+            context = await browser.new_context(viewport={'width': 1280, 'height': 800})
+            
+            # حقن الجلسة
+            cookies = os.getenv("GEMINI_COOKIES")
+            if cookies:
+                await context.add_cookies(json.loads(cookies))
+                logger.info("🍪 تم حقن ملفات التعريف.")
+
+            page = await context.new_page()
+            # حظر الصور لتوفير الوقت
+            await page.route("**/*.{{png,jpg,jpeg,svg,gif,webp,woff,ttf}}", lambda r: r.abort())
+
+            try:
+                await page.goto(self.endpoint, wait_until="domcontentloaded", timeout=60000)
+                
+                selector = "div[role='textbox'], [contenteditable='true']"
+                await page.wait_for_selector(selector)
+                await page.fill(selector, wrapped_prompt)
+                await page.keyboard.press("Enter")
+
+                # مراقبة النمو الذكي (Smart Stability Monitor)
+                response_sel = ".model-response-text"
+                await page.wait_for_selector(response_selector=response_sel, timeout=60000)
+                
+                prev_len = 0
+                stable_count = 0
+                for _ in range(50): # مراقبة لمدة تصل لـ 100 ثانية
+                    current_content = await page.evaluate(f'''() => {{
+                        const nodes = document.querySelectorAll("{response_sel}");
+                        return nodes.length > 0 ? nodes[nodes.length - 1].innerText : "";
+                    }}''')
+                    
+                    if len(current_content) > prev_len:
+                        logger.info(f"✍️ Gemini يولد المحتوى... ({len(current_content)} حرف)")
+                        prev_len = len(current_content)
+                        stable_count = 0
+                    else:
+                        stable_count += 1
+                    
+                    if stable_count >= 5 and prev_len > 0: # استقرار لـ 10 ثواني
+                        break
+                    await asyncio.sleep(2)
+
+                final_raw = await page.evaluate(f'document.querySelectorAll("{response_sel}")[document.querySelectorAll("{response_sel}").length - 1].innerText')
+                clean_json = self._extract_clean_json(final_raw)
+
+                output = {
+                    "status": "success",
+                    "prompt": prompt,
+                    "response": clean_json,
+                    "generated_at": datetime.now().isoformat()
+                }
+                logger.info("✅ تم استلام الرد وتنظيفه بنجاح.")
+
+            except Exception as e:
+                logger.error(f"❌ خطأ أثناء المحاكاة: {e}")
+                await page.screenshot(path="debug_crash.png")
+                output = {"status": "error", "message": str(e)}
+
+            with open(self.output_file, "w", encoding="utf-8") as f:
+                json.dump(output, f, ensure_ascii=False, indent=4)
+
+# ==========================================================
+# 3. نقطة الانطلاق (The Orchestrator)
+# ==========================================================
+async def main():
+    # 1. المرحلة السيادية: تجهيز الترسانة
+    arsenal = ArsenalManager()
+    if not arsenal.deploy():
+        logger.critical("🚨 فشل تفعيل البيئة الحيوية. توقف النظام.")
+        sys.exit(1)
+
+    # 2. مرحلة الذكاء: تشغيل الأتمتة
+    user_query = sys.argv[1] if len(sys.argv) > 1 else "مقدمة عن علوم الحاسوب"
+    automator = GeminiAutomator()
+    await automator.run(user_query)
 
 if __name__ == "__main__":
-    # الحصول على البرومبت من مدخلات GitHub Action
-    user_prompt = sys.argv[1] if len(sys.argv) > 1 else "Hi Gemini"
-    asyncio.run(run_gemini_automation(user_prompt))
+    asyncio.run(main())
