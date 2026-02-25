@@ -67,6 +67,9 @@ jobs:
           texlive texlive-latex-extra texlive-fonts-extra texlive-lang-arabic \
           dvisvgm
 
+      - name: "6.5 Install FFmpeg"
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       # --- المرحلة الأولى: محرك الذكاء الاصطناعي (Gemini Orchestration) ---
       - name: "🤖 7. Phase 1: Scripting (Asynchronous Call)"
         env:
