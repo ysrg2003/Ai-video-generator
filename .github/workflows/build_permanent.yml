@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # للسماح للأكشن بالرفع للمستودع
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -14,10 +14,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Download Everything
-        run: python setup_assets.py
-
-# ... (نفس البداية)
+      # 1. تثبيت مكتبات النظام أولاً (الخطوة الأهم)
       - name: "Install System Build Dependencies"
         run: |
           sudo apt-get update
@@ -27,14 +24,17 @@ jobs:
             libcairo2-dev \
             libpango1.0-dev \
             pkg-config \
-            libffi-dev
-          # هذه المكتبات تسمح لـ pip ببناء wheel لمكتبة manimpango بنجاح
+            libffi-dev \
+            libpangocairo-1.0-0
+
+      # 2. الآن تشغيل السكربت بعد جاهزية البيئة
+      - name: Download and Build Arsenal
+        run: python setup_assets.py
 
       - name: Commit and Push Assets
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
           git add vendor_assets.zip
-          git commit -m "Add permanent compressed assets"
+          git commit -m "Update arsenal with Manim dependencies" || echo "No changes to commit"
           git push
-
