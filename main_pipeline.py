@@ -5,28 +5,40 @@ import re
 import asyncio
 import stat
 import shutil
+import subprocess
 
 # ==========================================
-# 0. حقن الترسانة المتقدم (Advanced Arsenal Injection)
+# 0. نظام حقن البيئة الشامل (Industrial Environment Injection)
 # ==========================================
 def activate_arsenal():
-    """ربط السكربت بمجلد المكتبات والمتصفحات المستخرج"""
-    extract_base = os.path.join(os.getcwd(), "vendor_extracted")
+    """تجهيز المسارات والروابط التنفيذية لضمان عمل Manim و FFmpeg"""
+    cwd = os.getcwd()
+    extract_base = os.path.join(cwd, "vendor_extracted")
     v_python = os.path.join(extract_base, "python")
+    v_bin = os.path.join(v_python, "bin")
     v_browsers = os.path.join(extract_base, "browsers")
 
     if os.path.exists(v_python):
+        # 1. حقن مكتبات بايثون في مقدمة المسارات
         sys.path.insert(0, v_python)
-        # تحديث PATH للوصول للأدوات التنفيذية داخل الترسانة
-        bin_dir = os.path.join(v_python, "bin")
-        os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
-    
+        os.environ["PYTHONPATH"] = f"{v_python}:{os.environ.get('PYTHONPATH', '')}"
+        
+        # 2. جعل الأدوات التنفيذية (مثل manim و ffmpeg) مرئية للنظام
+        os.environ["PATH"] = f"{v_bin}:{os.environ.get('PATH', '')}"
+        
+        # 3. منح صلاحيات التنفيذ لكافة الملفات في مجلد bin
+        for file in os.listdir(v_bin):
+            fpath = os.path.join(v_bin, file)
+            st = os.stat(fpath)
+            os.chmod(fpath, st.st_mode | stat.S_IEXEC)
+        print(f"✅ Arsenal Active: Python libs and Binaries linked.")
+
     if os.path.exists(v_browsers):
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = v_browsers
 
 activate_arsenal()
 
-# استيراد المكتبات بعد الحقن
+# استيراد المكتبات بعد تجهيز البيئة
 try:
     import edge_tts
     from mutagen.mp3 import MP3
@@ -34,152 +46,136 @@ try:
     import arabic_reshaper
     from bidi.algorithm import get_display
 except ImportError as e:
-    print(f"⚠️ تحذير: نقص في المكتبات، قد يعتمد النظام على البيئة المحلية: {e}")
+    print(f"⚠️ Warning: Library missing in Arsenal, trying system fallback: {e}")
 
 # ==========================================
-# 1. إعدادات الإنتاج (Production Config)
+# 1. إدارة الأصول والبيانات (Data & Asset Management)
 # ==========================================
 ASSETS_DIR = "production_assets"
-if os.path.exists(ASSETS_DIR):
-    shutil.rmtree(ASSETS_DIR) # تنظيف لضمان إنتاج جديد تماماً
+if os.path.exists(ASSETS_DIR): shutil.rmtree(ASSETS_DIR)
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 def ar(text):
-    """إصلاح عرض اللغة العربية"""
+    """المعالج الاحترافي للنصوص العربية"""
     if not text: return ""
     return get_display(arabic_reshaper.reshape(text))
 
-# ==========================================
-# 2. معالج السيناريو (Script Processor)
-# ==========================================
-def load_script():
-    print("📖 جاري تحليل السيناريو من Gemini...")
+def load_script_safely():
+    """محرك استخراج JSON ذكي يتجاوز أخطاء التنسيق"""
+    print("📖 Searching for Gemini output (result.json)...")
+    path = "result.json"
+    if not os.path.exists(path):
+        # البحث في المجلدات الفرعية في حال قام الأكشن بتحميله في مجلدArtifact
+        for r, d, f in os.walk("."):
+            if "result.json" in f:
+                path = os.path.join(r, "result.json")
+                break
+    
     try:
-        with open("result.json", "r", encoding="utf-8") as f:
-            raw_data = json.load(f)
-            content = raw_data.get("response", str(raw_data))
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+            text_to_parse = raw.get("response", str(raw))
 
-        # تنظيف النص من أي علامات Markdown قد يضيفها Gemini
-        json_pattern = r'\[\s*{.*}\s*\]'
-        match = re.search(json_pattern, content, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        else:
-            # محاولة تحويل المحتوى مباشرة إذا كان نصاً نظيفاً
-            return json.loads(content.strip())
-    except Exception as e:
-        print(f"⚠️ خطأ في JSON: {e}. يتم استخدام سيناريو الطوارئ.")
-        return [{"text": "نعتذر، حدث خطأ في معالجة البيانات", "highlight": "خطأ", "color": "RED"}]
-
-# ==========================================
-# 3. مهندس الصوت (Audio Engineer)
-# ==========================================
-async def build_audio_track(scenes):
-    print("🎙️ توليد التعليق الصوتي لكل مشهد...")
-    for i, scene in enumerate(scenes):
-        path = os.path.join(ASSETS_DIR, f"s_{i}.mp3")
-        # صوت سلمى Neural يتميز بالوضوح والاحترافية
-        tts = edge_tts.Communicate(scene["text"], "ar-EG-SalmaNeural")
-        await tts.save(path)
+        # تنظيف بلوكات الماركداون والتعليقات الجانبية
+        text_to_parse = re.sub(r'```json|```', '', text_to_parse).strip()
         
-        # قياس المدة الزمنية بدقة للمزامنة البصرية
-        scene["duration"] = MP3(path).info.length
+        # محاولة العثور على أول مصفوفة [ ] في النص
+        json_match = re.search(r'\[.*\]', text_to_parse, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group(0))
+        return json.loads(text_to_parse)
+    except Exception as e:
+        print(f"❌ JSON Critical Error: {e}. Using Emergency Script.")
+        return [{"text": "نعتذر عن الخطأ التقني، جاري بدء العرض الاحتياطي", "highlight": "التقني", "color": "RED"}]
+
+# ==========================================
+# 2. محرك الصوت والرسوميات (Production Engines)
+# ==========================================
+async def prepare_assets(scenes):
+    print("🎙️ Generating High-Fidelity Audio Tracks...")
+    for i, scene in enumerate(scenes):
+        audio_path = os.path.join(ASSETS_DIR, f"s_{i}.mp3")
+        tts = edge_tts.Communicate(scene["text"], "ar-EG-SalmaNeural")
+        await tts.save(audio_path)
+        scene["duration"] = MP3(audio_path).info.length
     return scenes
 
-# ==========================================
-# 4. محرك الرسوميات السينمائي (Cinematic Engine)
-# ==========================================
 class AIVideoProduction(MovingCameraScene):
     def construct(self):
-        # تحميل البيانات المجهزة
-        data_file = os.path.join(ASSETS_DIR, "processed_script.json")
-        with open(data_file, "r", encoding="utf-8") as f:
+        # تحميل البيانات الوسيطة
+        with open(os.path.join(ASSETS_DIR, "data.json"), "r") as f:
             scenes = json.load(f)
 
-        # 1. إعداد الخلفية السينمائية (Gradient Background)
+        # خلفية سينمائية مع تدرج لوني عميق
         bg = FullScreenRectangle().set_fill(
             LinearGradient(direction=DOWN, colors=[DARK_GRAY, BLACK]), opacity=1
         )
         self.add(bg)
 
-        # 2. تأثير حركة الكاميرا (Constant Slow Zoom Out)
-        self.camera.frame.add_updater(lambda m, dt: m.scale(1 + 0.03 * dt))
+        # حركة كاميرا "تتنفس" (Slow Dynamic Zoom)
+        self.camera.frame.add_updater(lambda m, dt: m.scale(1 + 0.04 * dt))
 
-        prev_obj = None
-
+        current_obj = None
         for i, scene in enumerate(scenes):
-            txt = scene["text"]
-            hl = scene.get("highlight", "")
-            clr = scene.get("color", "YELLOW").upper()
-            
-            # لوحة ألوان الإنتاج
-            palette = {"RED": RED, "BLUE": BLUE, "GREEN": GREEN, "YELLOW": YELLOW, "PURPLE": PURPLE, "ORANGE": ORANGE}
-            hl_clr = palette.get(clr, YELLOW)
+            # تنسيق النص مع الكلمات المفتاحية
+            txt, hl = scene["text"], scene.get("highlight", "")
+            clr = getattr(sys.modules[__name__], scene.get("color", "YELLOW").upper(), YELLOW)
 
-            # بناء مصفوفة النص العربي (VGroup لضمان المحاذاة)
             if hl and hl in txt:
-                parts = txt.split(hl, 1)
-                main_txt = VGroup(
-                    Text(ar(parts[1]), font="sans-serif", font_size=34, color=WHITE),
-                    Text(ar(hl), font="sans-serif", font_size=40, color=hl_clr, weight=BOLD),
-                    Text(ar(parts[0]), font="sans-serif", font_size=34, color=WHITE)
-                ).arrange(RIGHT, buff=0.18)
+                p1, p2 = txt.split(hl, 1)
+                m_txt = VGroup(
+                    Text(ar(p2), font_size=34),
+                    Text(ar(hl), font_size=42, color=clr, weight=BOLD).scale(1.1),
+                    Text(ar(p1), font_size=34)
+                ).arrange(RIGHT, buff=0.15)
             else:
-                main_txt = Text(ar(txt), font="sans-serif", font_size=36, color=WHITE)
+                m_txt = Text(ar(txt), font_size=36)
 
-            # إضافة ظل خفيف للنص لزيادة العمق
-            main_txt.add_background_rectangle(color=BLACK, opacity=0.2, buff=0.2)
+            # إضافة ظل (Shadow) للنص لزيادة المقروئية
+            m_txt.add_background_rectangle(color=BLACK, opacity=0.3, buff=0.2)
 
-            # تشغيل الصوت المرتبط بالمشهد
-            audio_file = os.path.join(ASSETS_DIR, f"s_{i}.mp3")
-            self.add_sound(audio_file)
-
-            # حساب توقيت المشهد (مدة الصوت ناقص وقت الانتقال)
-            scene_duration = scene.get("duration", 3)
-            wait_time = max(0.5, scene_duration - 1.0)
-
-            # أنيميشن الانتقالات
-            if prev_obj is None:
-                self.play(Write(main_txt), run_time=1)
-                self.wait(wait_time)
-            else:
-                self.play(
-                    ReplacementTransform(prev_obj, main_txt),
-                    run_time=0.8,
-                    rate_func=smooth
-                )
-                self.wait(wait_time)
+            self.add_sound(os.path.join(ASSETS_DIR, f"s_{i}.mp3"))
             
-            prev_obj = main_txt
+            # الأنيميشن (Morphing Transition)
+            if current_obj is None:
+                self.play(Write(m_txt), run_time=1.2)
+            else:
+                self.play(ReplacementTransform(current_obj, m_txt), run_time=1)
+            
+            self.wait(max(0.5, scene["duration"] - 1.2))
+            current_obj = m_txt
 
-        # الخاتمة
-        self.play(FadeOut(prev_obj, scale=0.8), run_time=1.5)
+        self.play(FadeOut(current_obj, scale=0.5), run_time=1.5)
 
 # ==========================================
-# 5. المايسترو (Orchestrator)
+# 3. المايسترو التنفيذي (Executive Orchestrator)
 # ==========================================
-async def start_production():
-    # المرحلة 1: السيناريو
-    scenes = load_script()
+async def main():
+    # 1. معالجة البيانات والصوت
+    scenes = await prepare_assets(load_script_safely())
+    with open(os.path.join(ASSETS_DIR, "data.json"), "w") as f:
+        json.dump(scenes, f, indent=4)
+
+    print("🎬 Initializing Cinematic Render...")
     
-    # المرحلة 2: الصوتيات
-    scenes = await build_audio_track(scenes)
+    # الحل النهائي لمشكلة "Command Not Found":
+    # استدعاء مانيم كـ Module تابع لنسخة بايثون الحالية التي تملك الترسانة
+    render_args = [
+        "python3", "-m", "manim",
+        "-ql",                      # جودة منخفضة للسرعة (استخدم -qh للنهائي)
+        "main_pipeline.py",        # اسم الملف الحالي
+        "AIVideoProduction",       # اسم الكلاس
+        "-o", "final_video.mp4",
+        "--progress_bar", "none"
+    ]
     
-    # المرحلة 3: التوقيتات
-    with open(os.path.join(ASSETS_DIR, "processed_script.json"), "w", encoding="utf-8") as f:
-        json.dump(scenes, f, ensure_ascii=False, indent=4)
-        
-    print("🎬 بدء الرندر النهائي (High Quality Mode)...")
-    
-    # تمرير PYTHONPATH للمتطلبات الفرعية
-    p_path = os.path.join(os.getcwd(), "vendor_extracted", "python")
-    os.environ["PYTHONPATH"] = f"{p_path}:{os.environ.get('PYTHONPATH', '')}"
-    
-    # أمر الرندر الاحترافي (إلغاء أشرطة التقدم لعدم تلويث سجلات GitHub)
-    cmd = "manim -ql main_pipeline.py AIVideoProduction -o final_video.mp4 --progress_bar none"
-    os.system(cmd)
-    
-    print("\n✨ اكتمل الإنتاج! ابحث عن الفيديو في مجلد media.")
+    # تنفيذ العملية ومراقبة المخرجات
+    process = subprocess.run(render_args, capture_output=True, text=True)
+    print(process.stdout)
+    if process.returncode != 0:
+        print(f"❌ Render Failed: {process.stderr}")
+    else:
+        print("✨ Production Complete! Video is ready.")
 
 if __name__ == "__main__":
-    asyncio.run(start_production())
+    asyncio.run(main())
