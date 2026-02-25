@@ -27,20 +27,18 @@ jobs:
 
       - name: Install Python Libraries
         run: |
-          # تثبيت المكتبات اللازمة للمحركين (المستخرج والمونتاج)
           pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests
 
       - name: Phase 1: AI Director (Extracting Script)
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
         run: |
-          # ملاحظة: قمنا بصياغة البرومبت هنا بدقة هندسية لإجبار Gemini على الالتزام بصيغة JSON
-          PROMPT_ENGINEERING="أريد سكريبت فيديو عن ${{ github.event.inputs.prompt }}. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
-          python main.py "$PROMPT_ENGINEERING"
+          # استخدام علامة الحفظ كمتغير محمي لتجنب أخطاء السنتكس
+          PROMPT="أريد سكريبت فيديو عن ${{ github.event.inputs.prompt }}. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات، كل كائن يحتوي على (text: الجملة بالعربي، highlight: كلمة مميزة، color: اسم لون RED أو BLUE أو YELLOW). لا تكتب أي نصوص خارج المصفوفة."
+          python main.py "$PROMPT"
 
       - name: Phase 2: Render Video (Visual Engine)
         run: |
-          # تشغيل المحرك الشامل الذي يقرأ result.json ويصنع الفيديو
           python main_pipeline.py
 
       - name: Phase 3: Archive and Upload Video
@@ -48,15 +46,16 @@ jobs:
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
           
-          # تأكد من المسار الصحيح الذي يحفظ فيه Manim الفيديو
-          # في الكود الخاص بنا، قمنا بتسمية الفيديو final_video
-          VIDEO_PATH="media/videos/main_pipeline/1080p60/final_video.mp4"
+          # البحث عن الفيديو في المجلد الناتج
+          VIDEO_PATH=$(find media/videos -name "*.mp4" | head -n 1)
           
           if [ -f "$VIDEO_PATH" ]; then
-            git add "$VIDEO_PATH"
-            git commit -m "🎬 تم إنتاج فيديو جديد عن: ${{ github.event.inputs.prompt }}"
+            mkdir -output_videos || true
+            cp "$VIDEO_PATH" output_videos/final_video.mp4
+            git add output_videos/final_video.mp4
+            git commit -m "🎬 تم إنتاج فيديو جديد: ${{ github.event.inputs.prompt }}"
             git push
           else
-            echo "❌ لم يتم العثور على الفيديو، قد يكون هناك خطأ في الرندر."
+            echo "❌ لم يتم العثور على الفيديو."
             exit 1
           fi
