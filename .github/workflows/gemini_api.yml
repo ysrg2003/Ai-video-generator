@@ -17,13 +17,38 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run
+      # 1. محاولة استعادة المجلد المستخرج من الكاش (لتوفير وقت فك الضغط)
+      - name: Restore Arsenal Cache
+        id: cache-arsenal
+        uses: actions/cache@v4
+        with:
+          path: vendor_extracted
+          # المفتاح مرتبط بنسخة الترسانة v1
+          key: arsenal-v1-cache-${{ runner.os }}
+
+      # 2. تحميل وفك الضغط "فقط" إذا لم نجد المجلد في الكاش
+      - name: Download Arsenal from Release
+        if: steps.cache-arsenal.outputs.cache-hit != 'true'
+        run: |
+          echo "⬇️ Cache Miss! Downloading from Release..."
+          curl -L -o vendor_assets.zip https://github.com/${{ github.repository }}/releases/download/arsenal-v1/vendor_assets.zip
+          echo "📦 Unpacking Arsenal..."
+          unzip -q vendor_assets.zip -d vendor_extracted
+          
+      - name: Run Gemini Logic
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
-        run: python main.py "${{ github.event.inputs.prompt }}"
+        run: |
+          # تشغيل السكربت. وبما أن المجلد موجود (إما من الكاش أو الفك الجديد)
+          # سيتعرف عليه main.py ويقوم بحقن المسارات مباشرة.
+          python main.py "${{ github.event.inputs.prompt }}"
 
       - name: Result
         uses: actions/upload-artifact@v4
+        # رفع النتيجة حتى لو فشل السكربت (لأغراض التشخيص)
+        if: always() 
         with:
           name: gemini-json
-          path: result.json
+          path: |
+            result.json
+            error_debug.png
