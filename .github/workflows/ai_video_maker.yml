@@ -1,4 +1,4 @@
-name: Ultimate AI Video Production
+name: "Ultimate AI Video Production"
 
 on:
   workflow_dispatch:
@@ -15,37 +15,40 @@ jobs:
       contents: write
     
     steps:
-      - name: Checkout Repository
+      - name: "Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v4
+      - name: "Setup Python"
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip' # ميزة لتسريع التشغيل المرة القادمة
 
-      - name: Install System Dependencies
+      - name: "Install System Dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf 
-          python -m playwright install chromium
+          sudo apt-get install -y ffmpeg libcairo2-dev libpango1.0-dev pkg-config fonts-freefont-ttf fonts-kacst fonts-noto-core
 
-      - name: Install Python Libraries
+      - name: "Install Python Libraries"
         run: |
-          pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests
+          pip install --upgrade pip
+          pip install manim edge-tts mutagen arabic-reshaper python-bidi camoufox requests playwright
+          # الخطوة الحاسمة: تثبيت متصفح بايثون وتأكيد التنفيذ
+          python -m playwright install --with-deps chromium
 
-      - name: Phase 1 AI Director
+      - name: "Phase 1 AI Director"
         env:
           GEMINI_COOKIES: ${{ secrets.GEMINI_COOKIES }}
           USER_PROMPT: ${{ github.event.inputs.prompt }}
         run: |
-          # لاحظ استخدام علامات التنصيص المفردة لمنع أي تداخل مع لغة YAML
+          # نستخدم python -m لضمان استدعاء الموديول من نفس البيئة
           python main.py "أريد سكريبت فيديو عن $USER_PROMPT. أخرج النتيجة حصرياً بصيغة JSON كقائمة تحتوي على 3 كائنات."
 
-      - name: Phase 2 Render Video
+      - name: "Phase 2 Render Video"
         run: |
           python main_pipeline.py
 
-      - name: Phase 3 Archive and Upload Video
+      - name: "Phase 3 Archive and Upload"
         run: |
           git config --global user.name "VideoBot"
           git config --global user.email "bot@video.com"
